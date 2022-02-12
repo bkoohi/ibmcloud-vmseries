@@ -95,3 +95,178 @@ Note: Default credentials are "admin":"admin" when using the VM-Series image. Af
 ## Support Policy
 The code and script in the repo are released under an as-is, best effort, support policy. These scripts should be seen as community supported and Palo Alto Networks will contribute our expertise as and when possible. We do not provide technical support or help in using or troubleshooting the components of the project through our normal support options such as Palo Alto Networks support teams, or ASC (Authorized Support Centers) partners and backline support options. The underlying product used (the VM-Series firewall) by the scripts are still supported, but the support is only for the product functionality and not for help in deploying or using the script itself.
 Unless explicitly tagged, all projects or work posted in our GitHub repository (at https://github.com/PaloAltoNetworks) or sites other than our official Downloads page on https://support.paloaltonetworks.com are provided under the best effort policy.
+Launch the VM-Series Firewall Using a Terraform Template
+Previous
+Next
+After modifying the templates for your OCI environment, you can launch the VM-Series firewall.
+The VM-Series firewall image boots up with the default username and password (admin/admin). To ensure that your VM-Series firewall instance is protected until you can change the default password, restrict the security list of the management subnet to your source IP address before deploying the VM-Series firewall.
+
+    If you have not done so already, install Terraform on your computer.
+    In the command line on your computer, access the folder containing your Terraform Template files.
+    Initialize and verify the provider; OCI in this case. Execute the following command:
+
+    terraform init
+
+    You see the following upon successful initialization:
+    Validate the template files. Execute the following command to validate the files. If this command returns an error, correct the listed error in your files.
+
+    terraform validate
+
+    (optional
+    ) You can use the following command to display a plan of your deployment using the data from the templates.
+
+    terraform plan
+
+    Launch the VM-Series firewall instance. Enter yes when prompted.
+
+    terrafom apply
+
+    When the process is complete, the CLI displays the following:
+    Verify that your VM-Series firewall instance was launched.
+        Log in to the OCI console.
+        Select Compute
+        Instances
+        .
+        Select Created Date (Desc)
+        from the Sort By
+        drop-down to see the most recently created instances.
+        Your new VM-Series firewall instance should be listed first.
+    Delete default security list rules to prevent access to the firewall until you have changed the default password.
+        Select Networking
+        Virtual Cloud Networks
+        <your VCN>
+        Security Lists
+        Default Security List
+        Edit All Rules
+        .
+        Click the delete icon to delete each rule.
+        After deleting each rule, click Save Security List Rules
+        .
+    Change the default password through a console connection to the firewall.
+        Configure a console connection.
+            Generate a public key and copy it.
+            Log in to the OCI console.
+            Select Compute
+            Instances
+            and click your VM-Series firewall instance.
+            Select Console Connections
+            Create Console Connection
+            Paste SSH Keys
+            .
+            Paste your key and click Create Console Connection
+            .
+        Open a console connection to the VM-Series firewall.
+            Select Connect with SSH
+            .
+            Copy the string used to open the console connection to the VM-Series firewall.
+            Open a terminal on your computer and, from the directory containing your keypair, paste the string you copied above and hit Enter.
+        Change the password.
+            Enter config mode.
+
+            admin@PA-VM> configure
+
+            Execute the following command to change the password. When prompted, enter your new password and enter it again to confirm.
+
+            admin@PA-VM# set mgt-config users admin password
+
+            Commit your changes.
+    Add route table rules to the management route table to give yourself SSH and web interface access to the firewall.
+        Select Networking
+        Virtual Cloud Networks
+        and click your VCN.
+        Select Route Tables
+        and click your management route table.
+        Select Edit Route Rules
+        + Another Route Rule
+        .
+        Select your compartment.
+        Enter a descriptive Name
+        for your route table.
+        Select a target type. For subnets that are publicly accessible, select Internet Gateway.
+        Enter a Destination CIDR Block
+        .
+        Select the internet gateway you created previously from the Target Internet Gateway
+        drop-down.
+        Click Create Save
+        .
+    Edit security lists to give yourself SSH and web interface access to the firewall.
+        From your VCN, select Security Lists
+        mgmt-security-list
+        Edit All Rules
+        .
+        mgmt-security-list is the default name used in the Terraform Template file. If you have changed this value, locate you management security list.
+        Select CIDR from the Source Type
+        drop-down and Source CIDR
+        block.
+        Select TCP from the IP Protocol
+        drop-down.
+        Enter source and destination ports or port ranges. If you leave these fields blank, all ports are allowed. Port 22 is required for SSH access and port 443 is required for SSL access to the firewall web interface.
+        Click Create Security List
+        .
+    Configure the dataplane network interfaces as Layer 3 interfaces on the firewall.
+        Log in to the firewall.
+        Select Network
+        Interfaces
+        Ethernet
+        .
+        Click the link for ethernet 1/1
+        and configure as follows:
+            Interface Type
+            : Layer3
+            On the Config
+            tab, assign the interface to the default router.
+            On the Config
+            tab, expand the Security Zone
+            drop-down and select New Zone
+            . Define a new zone, for example untrust-zone, and then click OK
+            .
+            On the IPv4
+            tab, select either Static
+            or DHCP Client
+            .
+            If using the Static
+            option, click Add
+            in the IP section, and enter the IP address and network mask for the interface. Make sure that the IP address matches the IP address that you assigned to the corresponding subnet in VCN. For example, if you add this interface to your untrust zone, make sure you assign the untrust vNIC IP address configured in your VCN.
+        Repeat this procedure for each vNIC configured in your VCN except your management vNIC.
+    Create NAT rules to allow inbound and outbound traffic form the servers deployed in VCN.
+        Select Policies
+        NAT
+        on the web interface of the firewall.
+        Create a NAT rule that allows traffic from the external-facing or untrust dataplane network interface on the firewall to the trust interface in the VCN.
+        Create a NAT rule that allows outbound access for traffic from inside the VCN to the internet.
+    Disable DPDK on the firewall. The VM-Series firewall on OCI supports Packet MMAP only. DPDK is enabled by default and must be disabled.
+        Log in to the firewall CLI.
+        Disable DPDK.
+        admin@PA-VM> set system setting dpdk-pkt-io off
+        Restart the firewall.
+    (optional
+    ) If you need more storage than the minimum 60GB required by the VM-Series firewall, you can create and attach a storage volume to your VM-Series firewall instance.
+        Log in to the OCI console.
+        Select Storage
+        Block Volumes
+        Create Block Volume
+        .
+        Select your compartment.
+        Enter a descriptive Name
+        for your block storage volume.
+        Select an Availability Zone
+        .
+        Enter the size for your block volume.
+        Click Create Block Volume
+        .
+        Select Compute
+        Instances
+        , click on your newly-created instance, and select Attached Block Volumes
+        Attach Block Volume
+        .
+        Select Paravirtualized
+        .
+        Select your compartment.
+        Select the block volume you created previously from the Block Volume drop-down.
+        Select Read/Write
+        .
+        Click Attach
+        .
+        Reboot the VM-Series firewall instance by clicking Reboot
+        on the Instance Details page.
+
