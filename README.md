@@ -101,7 +101,8 @@ Next
 After modifying the templates for your OCI environment, you can launch the VM-Series firewall.
 The VM-Series firewall image boots up with the default username and password (admin/admin). To ensure that your VM-Series firewall instance is protected until you can change the default password, restrict the security list of the management subnet to your source IP address before deploying the VM-Series firewall.
 
-    If you have not done so already, install Terraform on your computer.
+#Launch the VM-Series Firewall Using a Terraform Template
+   If you have not done so already, install Terraform on your computer.
     In the command line on your computer, access the folder containing your Terraform Template files.
     Initialize and verify the provider; OCI in this case. Execute the following command:
 
